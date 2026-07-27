@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fireworks For You</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Silkscreen:wght@400;700&family=Inter:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: #05060c;
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+
+  #sky {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    cursor: none;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 100%, #0d0e1c 0%, #05060c 60%);
+  }
+
+  /* Skyline silhouette */
+  #skyline {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 90px;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  #stars {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .star {
+    position: absolute;
+    border-radius: 0;
+    background: white;
+    animation: twinkle var(--d, 3s) ease-in-out infinite;
+    opacity: var(--o, 0.4);
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: var(--o); }
+    50% { opacity: calc(var(--o) * 0.25); }
+  }
+
+  #canvas-fireworks {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* Header */
+  #header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    text-align: center;
+    padding-top: 44px;
+    z-index: 5;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+  }
+
+  #header h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(1rem, 3.6vw, 1.9rem);
+    color: #f5dfa0;
+    line-height: 1.6;
+    text-shadow:
+      2px 2px 0 rgba(201,104,122,0.5),
+      0 0 24px rgba(245,223,160,0.5);
+    letter-spacing: 0.02em;
+    image-rendering: pixelated;
+  }
+
+  #header p {
+    margin-top: 14px;
+    font-family: 'VT323', monospace;
+    font-size: 1.15rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+    font-weight: 400;
+  }
+
+  /* Progress dots */
+  #progress {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 6;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 0;
+    background: rgba(255,255,255,0.15);
+    transition: background 0.4s, transform 0.4s;
+  }
+  .dot.lit {
+    background: #f5dfa0;
+    box-shadow: 0 0 8px rgba(245,223,160,0.9), 2px 2px 0 rgba(201,104,122,0.5);
+    transform: scale(1.15);
+  }
+
+  /* Message card */
+  #message-card {
+    position: fixed;
+    transform: translate(-50%, -50%) scale(0.9);
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    z-index: 20;
+    max-width: min(520px, 88vw);
+  }
+
+  #message-card.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  #message-eyebrow {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #f5dfa0;
+    margin-bottom: 16px;
+    text-shadow: 1px 1px 0 rgba(201,104,122,0.6), 0 0 16px rgba(245,223,160,0.5);
+  }
+
+  #message-text {
+    font-family: 'VT323', monospace;
+    font-size: clamp(1.15rem, 3.2vw, 1.6rem);
+    line-height: 1.4;
+    color: #ffffff;
+    letter-spacing: 0.01em;
+    text-shadow:
+      0 0 12px rgba(0,0,0,0.9),
+      0 0 30px rgba(245,223,160,0.4),
+      2px 2px 0 rgba(0,0,0,0.6);
+  }
+
+  /* Hint */
+  #hint {
+    position: absolute;
+    bottom: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'VT323', monospace;
+    font-size: 1.05rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+    z-index: 5;
+    transition: opacity 0.6s;
+    text-align: center;
+  }
+
+  /* Final overlay */
+  #finale {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,6,12,0.0);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1.2s ease, background 1.2s ease;
+    padding: 30px;
+  }
+  #finale.show {
+    opacity: 1;
+    pointer-events: all;
+    background: rgba(5,6,12,0.55);
+  }
+
+  #finale-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    max-width: 460px;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 1s ease 0.4s, transform 1s ease 0.4s;
+  }
+  #finale-inner.show { opacity: 1; transform: translateY(0); }
+
+  #finale-inner h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(1.2rem, 4.4vw, 2rem);
+    line-height: 1.8;
+    color: #f5dfa0;
+    text-shadow:
+      2px 2px 0 rgba(201,104,122,0.6),
+      0 0 40px rgba(245,223,160,0.5);
+  }
+
+  #finale-inner p {
+    margin-top: 18px;
+    font-family: 'VT323', monospace;
+    font-size: 1.3rem;
+    letter-spacing: 0.03em;
+    color: rgba(255,255,255,0.85);
+    max-width: 400px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  #replay-btn {
+    margin-top: 28px;
+    background: transparent;
+    border: 3px solid #f5dfa0;
+    color: #f5dfa0;
+    padding: 12px 26px;
+    border-radius: 0;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 3px 3px 0 rgba(245,223,160,0.35);
+  }
+  #replay-btn:hover {
+    background: rgba(245,223,160,0.15);
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 rgba(245,223,160,0.5);
+  }
+  #replay-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 rgba(245,223,160,0.5);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .star, .dot { animation: none !important; }
+  }
+
+  /* Intro / start screen */
+  #intro-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at 50% 40%, #0d0e1c 0%, #05060c 70%);
+    transition: opacity 0.9s ease, visibility 0.9s ease;
+  }
+  #intro-screen.hide {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #intro-inner {
+    text-align: center;
+    padding: 24px;
+    max-width: 520px;
+  }
+  #intro-inner h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(1.1rem, 4vw, 1.8rem);
+    line-height: 1.9;
+    color: #f5dfa0;
+    text-shadow:
+      2px 2px 0 rgba(201,104,122,0.6),
+      0 0 40px rgba(245,223,160,0.45);
+    margin-bottom: 20px;
+  }
+  #intro-inner p {
+    font-family: 'VT323', monospace;
+    font-size: 1.35rem;
+    letter-spacing: 0.03em;
+    color: rgba(255,255,255,0.75);
+    line-height: 1.6;
+    margin-bottom: 34px;
+  }
+  #intro-start-btn {
+    background: transparent;
+    border: 3px solid #f5dfa0;
+    color: #f5dfa0;
+    padding: 14px 30px;
+    border-radius: 0;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 3px 3px 0 rgba(245,223,160,0.35);
+  }
+  #intro-start-btn:hover {
+    background: rgba(245,223,160,0.15);
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 rgba(245,223,160,0.5);
+  }
+  #intro-start-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 rgba(245,223,160,0.5);
+  }
+  #intro-screen .intro-star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    opacity: 0.7;
+  }
+
+  /* Custom cursor firework trail */
+  .cursor-spark {
+    position: fixed;
+    top: 0; left: 0;
+    width: 3px;
+    height: 3px;
+    pointer-events: none;
+    z-index: 100;
+    border-radius: 0;
+    will-change: transform, opacity;
+  }
+
+  #cursor-dot {
+    position: fixed;
+    top: 0; left: 0;
+    width: 6px;
+    height: 6px;
+    background: #ffffff;
+    box-shadow: 0 0 4px #ffffff, 0 0 10px rgba(245,223,160,0.9);
+    pointer-events: none;
+    z-index: 101;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+</style>
+</head>
+<body>
+
+<div id="intro-screen">
+  <div id="intro-inner">
+    <h1>A Small But<br>Beautiful Fireworks<br>Show, For You</h1>
+    <p>Just a few sparks in the dark, each one holding a little reason why. Tap below whenever you're ready.</p>
+    <button id="intro-start-btn">Begin</button>
+  </div>
+</div>
+
+<audio id="audio-launch" src="audio_1.mp3" preload="auto"></audio>
+<audio id="audio-explode" src="audio_2.mp3" preload="auto"></audio>
+<audio id="audio-finale" src="audio_3.m4a" preload="auto"></audio>
+
+<div id="sky">
+  <div id="stars"></div>
+  <canvas id="canvas-fireworks"></canvas>
+
+  <div id="header">
+    <h1>Light Up The Sky</h1>
+    <p>Tap anywhere to know a reason why I love you</p>
+  </div>
+
+  <div id="progress"></div>
+
+  <div id="hint">Tap or click anywhere in the sky</div>
+
+  <div id="cursor-dot"></div>
+
+  <div id="finale">
+    <div id="finale-inner">
+      <h2>Happy Birthday Darling</h2>
+      <p>A few reasons, and still not all of them. Not even 1% of what I feel, warna fireworks khatam ho jaate reasons likhte likhte.</p>
+      <button id="replay-btn">Aage Chaloooo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── EDIT YOUR REASONS HERE ──
+const reasons = [
+  "The way your eyes sparkle all the time and your smile makes my entire day",
+  "You remember the small things that sometimes I forget I even said",
+  "How your voice feels like the sweetest lullaby, making everything else fade away.",
+  "The way you terribly mimic my voice during calls",
+  "Your beautiful humming that makes me sleepy (in a good way)",
+  "How you always somehow understand my horrendous typos",
+  "The way you got me thinking and daydreaming about you every second of the day",
+  "You make ordinary days feel like something worth celebrating",
+  "The way tu paani ko bhi pighla deti hai",
+  "Your stubbornness, especially when it comes to hanging up the calls",
+  "The way you say my name like it means something to you",
+  "How you never let me sit in a bad mood alone",
+  "Your ridiculous, specific, wonderful indecisiveness about everything",
+  "The way you love the people around you without keeping score",
+  "Simply everything. All of you, exactly as you are"
+];
+
+let launchIndex = 0;
+let revealedCount = 0;
+const total = reasons.length;
+
+// ── STARS ──
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 100; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  const size = Math.random() * 2 + 0.5;
+  s.style.cssText = `
+    width:${size}px; height:${size}px;
+    top:${Math.random()*70}%;
+    left:${Math.random()*100}%;
+    --d:${2+Math.random()*4}s;
+    --o:${0.1+Math.random()*0.45};
+    animation-delay:${Math.random()*4}s;
+  `;
+  starsEl.appendChild(s);
+}
+
+// ── PROGRESS DOTS ──
+const progressEl = document.getElementById('progress');
+for (let i = 0; i < total; i++) {
+  const d = document.createElement('div');
+  d.className = 'dot';
+  d.id = 'dot' + i;
+  progressEl.appendChild(d);
+}
+
+// ── CANVAS SETUP (pixelated rendering) ──
+const canvas = document.getElementById('canvas-fireworks');
+const ctx = canvas.getContext('2d');
+const PIXEL_SCALE = 4; // bigger = chunkier pixels
+let bufferCanvas, bufferCtx;
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.imageRendering = 'pixelated';
+
+  bufferCanvas = document.createElement('canvas');
+  bufferCanvas.width = Math.ceil(window.innerWidth / PIXEL_SCALE);
+  bufferCanvas.height = Math.ceil(window.innerHeight / PIXEL_SCALE);
+  bufferCtx = bufferCanvas.getContext('2d');
+  bufferCtx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = false;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const colors = ['#f5dfa0','#e8c97a','#c9687a','#a99dd4','#7bbdd4','#f0b870','#92cc92','#ff8fa3','#ffffff'];
+
+// Curated multi-color palettes so each firework bursts as a cohesive blend, not random noise
+const palettes = [
+  ['#ffe9a8','#ffd27a','#ff9f4a','#ffffff'],
+  ['#ff8fa3','#ff6f91','#c9687a','#ffd6de','#ffffff'],
+  ['#a99dd4','#c9b8ff','#7b6db0','#ffffff'],
+  ['#7bbdd4','#9fe3ff','#4a8fa8','#ffffff'],
+  ['#92cc92','#c2f0c2','#5fae5f','#ffffff'],
+  ['#f5dfa0','#ff8fa3','#a99dd4','#ffffff'],
+  ['#ffffff','#e8c97a','#ffd27a','#fff8e0'],
+  ['#ff5f6d','#ffc371','#ffe066','#ffffff'],
+  ['#00c9a7','#92fe9d','#c2f0c2','#ffffff'],
+  ['#845ec2','#d65db1','#ff6f91','#ffffff'],
+  ['#00d2fc','#0be1ff','#7cf5ff','#ffffff'],
+  ['#ff9671','#ffc75f','#f9f871','#ffffff'],
+  ['#ff007f','#ff5fa2','#ffd1e8','#ffffff'],
+  ['#4dff88','#a6ffcb','#12d67e','#ffffff'],
+  ['#ffd700','#ff8c00','#ff4500','#ffffff'],
+  ['#00fff0','#00c2ff','#7afcff','#ffffff'],
+  ['#ff61a6','#ffb3d9','#c77dff','#ffffff'],
+  ['#bfff00','#e0ff4f','#ffffff'],
+];
+
+let particles = [];
+let rockets = [];
+
+class Rocket {
+  constructor(targetX, targetY) {
+    this.x = targetX + (Math.random()*60-30);
+    this.y = canvas.height;
+    this.targetY = targetY;
+    this.targetX = targetX;
+    this.vx = (targetX - this.x) / 55;
+    this.vy = -(this.y - targetY) / 55 - 2;
+    this.color = palettes[Math.floor(Math.random()*palettes.length)][0];
+    this.trail = [];
+    this.done = false;
+  }
+  update() {
+    this.trail.push({x:this.x, y:this.y});
+    if (this.trail.length > 8) this.trail.shift();
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.03;
+    if (this.y <= this.targetY || this.vy >= 0) {
+      this.done = true;
+    }
+  }
+  draw() {
+    const s = PIXEL_SCALE;
+    this.trail.forEach((t, i) => {
+      const alpha = i / this.trail.length;
+      bufferCtx.globalAlpha = alpha * 0.7;
+      bufferCtx.fillStyle = this.color;
+      const px = Math.round(t.x / s) * 0 + t.x / s;
+      const py = t.y / s;
+      bufferCtx.fillRect(Math.floor(px) - 0.5, Math.floor(py) - 0.5, 1.5, 1.5);
+    });
+    // glow around rocket head
+    bufferCtx.globalAlpha = 0.5;
+    bufferCtx.fillStyle = this.color;
+    bufferCtx.fillRect(this.x/s - 1.5, this.y/s - 1.5, 3, 3);
+
+    bufferCtx.globalAlpha = 1;
+    bufferCtx.fillStyle = '#fff';
+    bufferCtx.fillRect(this.x/s - 0.5, this.y/s - 0.5, 1, 1);
+  }
+}
+
+class Particle {
+  constructor(x, y, color, type, angleOverride, speedOverride) {
+    this.x = x; this.y = y;
+    this.px = x; this.py = y; // previous position for streak trails
+    const angle = angleOverride !== undefined ? angleOverride : Math.random() * Math.PI * 2;
+    let speed;
+    if (type === 'streamer')      speed = 3 + Math.random()*6.5;
+    else if (type === 'glitter')  speed = 1 + Math.random()*4.5;
+    else if (type === 'core')     speed = 0.5 + Math.random()*1.8;
+    else                          speed = 1.5 + Math.random()*4;
+    speed = speedOverride !== undefined ? speedOverride : speed;
+
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    this.color = color;
+    this.alpha = 1;
+    this.type = type;
+    this.gravity = type === 'streamer' ? 0.055 : 0.035;
+    this.drag = type === 'glitter' ? 0.985 : 0.975;
+
+    if (type === 'streamer') {
+      this.decay = 0.006 + Math.random()*0.007;
+      this.size = 1.6 + Math.random()*1.4;
+    } else if (type === 'glitter') {
+      this.decay = 0.012 + Math.random()*0.018;
+      this.size = 0.8 + Math.random()*1.3;
+      this.flicker = Math.random()*Math.PI*2;
+    } else if (type === 'core') {
+      this.decay = 0.01 + Math.random()*0.008;
+      this.size = 2.2 + Math.random()*1.8;
+    } else {
+      this.decay = 0.009 + Math.random()*0.012;
+      this.size = 1.4 + Math.random()*1.6;
+    }
+  }
+  update() {
+    this.px = this.x; this.py = this.y;
+    this.vx *= this.drag;
+    this.vy *= this.drag;
+    this.vy += this.gravity;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.alpha -= this.decay;
+    if (this.type === 'glitter') this.flicker += 0.9;
+  }
+  draw() {
+    if (this.alpha <= 0) return;
+    const a = Math.max(this.alpha, 0);
+    const s = PIXEL_SCALE;
+    const x = this.x / s, y = this.y / s;
+    const px = this.px / s, py = this.py / s;
+
+    if (this.type === 'streamer') {
+      // Motion streak drawn as a chunky pixel line
+      bufferCtx.globalAlpha = a;
+      bufferCtx.strokeStyle = this.color;
+      bufferCtx.lineWidth = Math.max(this.size * 0.5, 1);
+      bufferCtx.lineCap = 'square';
+      bufferCtx.beginPath();
+      bufferCtx.moveTo(Math.round(px), Math.round(py));
+      bufferCtx.lineTo(Math.round(x), Math.round(y));
+      bufferCtx.stroke();
+      // bright tip pixel
+      bufferCtx.globalAlpha = a * 0.9;
+      bufferCtx.fillStyle = '#fff';
+      const tipSize = Math.max(this.size * 0.4, 1);
+      bufferCtx.fillRect(Math.round(x) - tipSize/2, Math.round(y) - tipSize/2, tipSize, tipSize);
+    } else if (this.type === 'glitter') {
+      const twinkle = (Math.sin(this.flicker) + 1) / 2;
+      bufferCtx.globalAlpha = a * (0.4 + twinkle*0.6);
+      bufferCtx.fillStyle = this.color;
+      const sz = Math.max(Math.round(this.size), 1);
+      bufferCtx.fillRect(Math.round(x) - sz/2, Math.round(y) - sz/2, sz, sz);
+    } else {
+      // soft glow block
+      bufferCtx.globalAlpha = a * 0.35;
+      bufferCtx.fillStyle = this.color;
+      const glowSz = Math.max(Math.round(this.size*2.2), 2);
+      bufferCtx.fillRect(Math.round(x) - glowSz/2, Math.round(y) - glowSz/2, glowSz, glowSz);
+
+      bufferCtx.globalAlpha = a;
+      const sz = Math.max(Math.round(this.size), 1);
+      bufferCtx.fillRect(Math.round(x) - sz/2, Math.round(y) - sz/2, sz, sz);
+    }
+    bufferCtx.globalAlpha = 1;
+  }
+}
+
+// ── SOUND EFFECTS ──
+const audioLaunch = document.getElementById('audio-launch');
+const audioExplode = document.getElementById('audio-explode');
+const audioFinale = document.getElementById('audio-finale');
+function playSound(el) {
+  const clone = el.cloneNode(true);
+  clone.volume = el.volume;
+  clone.play().catch(() => {});
+  clone.addEventListener('ended', () => clone.remove());
+}
+
+function burst(x, y, colorIgnored, muteSound) {
+  if (!muteSound) playSound(audioExplode);
+  const palette = palettes[Math.floor(Math.random()*palettes.length)];
+  // Occasionally blend in a second palette for extra color variety
+  const usesSecondPalette = Math.random() > 0.55;
+  const palette2 = usesSecondPalette ? palettes[Math.floor(Math.random()*palettes.length)] : palette;
+  const pick = () => palette[Math.floor(Math.random()*palette.length)];
+  const pick2 = () => palette2[Math.floor(Math.random()*palette2.length)];
+
+  // 1) Long bright streamers — the main "chrysanthemum" shape, evenly spread
+  const streamerCount = 220 + Math.floor(Math.random()*100);
+  for (let i = 0; i < streamerCount; i++) {
+    const angle = (Math.PI*2 / streamerCount) * i + (Math.random()*0.12 - 0.06);
+    particles.push(new Particle(x, y, i % 2 === 0 ? pick() : pick2(), 'streamer', angle));
+  }
+
+  // 2) Dense glitter fill — gives the burst volume and sparkle
+  const glitterCount = 320 + Math.floor(Math.random()*160);
+  for (let i = 0; i < glitterCount; i++) {
+    particles.push(new Particle(x, y, Math.random() > 0.5 ? pick() : pick2(), 'glitter'));
+  }
+
+  // 3) Soft glow core particles — slower, glowing, linger longer
+  const coreCount = 90 + Math.floor(Math.random()*50);
+  for (let i = 0; i < coreCount; i++) {
+    particles.push(new Particle(x, y, pick(), 'core'));
+  }
+
+  // 4) White flash ring right at the center for punch
+  const flashCount = 46;
+  for (let i = 0; i < flashCount; i++) {
+    const angle = (Math.PI*2 / flashCount) * i;
+    const p = new Particle(x, y, '#ffffff', 'glitter', angle, 1 + Math.random()*1.5);
+    p.decay = 0.03 + Math.random()*0.02;
+    particles.push(p);
+  }
+
+  // 5) A few secondary crackle bursts that pop slightly after, staggered
+  const crackleBursts = 8 + Math.floor(Math.random()*5);
+  for (let c = 0; c < crackleBursts; c++) {
+    setTimeout(() => {
+      const angle = Math.random()*Math.PI*2;
+      const dist = 40 + Math.random()*80;
+      const cx = x + Math.cos(angle)*dist;
+      const cy = y + Math.sin(angle)*dist;
+      const miniColor = Math.random() > 0.5 ? pick() : pick2();
+      for (let i = 0; i < 40; i++) {
+        particles.push(new Particle(cx, cy, miniColor, 'glitter'));
+      }
+    }, 180 + c*80 + Math.random()*80);
+  }
+}
+
+function grandFinaleBurst(x, y) {
+  // One dedicated finale sound instead of dozens of overlapping explosion sounds
+  playSound(audioFinale);
+
+  // The click still gets its own big burst right where you clicked...
+  burst(x, y, null, true);
+
+  // ...then the whole sky erupts, wave after wave, edge to edge.
+  const w = canvas.width;
+  const h = canvas.height;
+  const waves = 5;
+  for (let wv = 0; wv < waves; wv++) {
+    setTimeout(() => {
+      const burstsThisWave = 4 + Math.floor(Math.random()*3);
+      for (let i = 0; i < burstsThisWave; i++) {
+        const bx = Math.random() * w;
+        const by = h * 0.12 + Math.random() * (h * 0.55);
+        burst(bx, by, null, true);
+      }
+    }, wv * 420 + Math.random() * 100);
+  }
+}
+
+function animate() {
+  // Fade trail on the low-res buffer
+  bufferCtx.globalAlpha = 1;
+  bufferCtx.fillStyle = 'rgba(5,6,12,0.28)';
+  bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
+
+  rockets.forEach(r => { r.update(); r.draw(); });
+  rockets = rockets.filter(r => {
+    if (r.done) {
+      if (r.isFinale) { grandFinaleBurst(r.x, r.y); }
+      else { burst(r.x, r.y, r.color); }
+      return false;
+    }
+    return true;
+  });
+
+  particles.forEach(p => { p.update(); p.draw(); });
+  particles = particles.filter(p => p.alpha > 0 && p.y < canvas.height + 50);
+
+  // Blit the low-res buffer up to the full-size canvas, unsmoothed = chunky pixels
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(bufferCanvas, 0, 0, bufferCanvas.width, bufferCanvas.height, 0, 0, canvas.width, canvas.height);
+
+  requestAnimationFrame(animate);
+}
+animate();
+
+// ── LAUNCH ON TAP ──
+const sky = document.getElementById('sky');
+const hint = document.getElementById('hint');
+const finale = document.getElementById('finale');
+const finaleInner = document.getElementById('finale-inner');
+function handleLaunch(clientX, clientY) {
+  if (launchIndex >= total) return;
+
+  const targetY = Math.max(clientY, 60);
+  const targetX = clientX;
+  const isFinale = launchIndex === total - 1;
+  const rocket = new Rocket(targetX, targetY);
+  rocket.isFinale = isFinale;
+  rockets.push(rocket);
+  playSound(audioLaunch);
+
+  hint.style.opacity = '0';
+  if (launchIndex === 0) {
+    document.getElementById('header').style.opacity = '0';
+  }
+
+  const myIndex = launchIndex;
+  launchIndex++;
+
+  setTimeout(() => {
+    showMessage(reasons[myIndex], targetX, targetY);
+    document.getElementById('dot' + myIndex).classList.add('lit');
+    revealedCount++;
+
+    if (revealedCount === total) {
+      setTimeout(showFinale, 3200);
+    }
+  }, 750);
+}
+
+sky.addEventListener('click', (e) => {
+  handleLaunch(e.clientX, e.clientY);
+});
+
+sky.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  handleLaunch(t.clientX, t.clientY);
+}, { passive: false });
+
+function showMessage(text, x, y) {
+  const el = document.createElement('div');
+  el.id = 'message-card';
+  el.innerHTML = `<div id="message-text">${text}</div>`;
+
+  // Position at the burst location, clamped so the text stays on screen
+  const margin = 24;
+  const estWidth = Math.min(520, window.innerWidth * 0.88);
+  const clampedX = Math.min(Math.max(x, estWidth/2 + margin), window.innerWidth - estWidth/2 - margin);
+  const clampedY = Math.min(Math.max(y, 90), window.innerHeight - 110);
+
+  el.style.left = clampedX + 'px';
+  el.style.top = clampedY + 'px';
+
+  document.getElementById('sky').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translate(-50%, -65%) scale(0.94)';
+    setTimeout(() => el.remove(), 700);
+  }, 4400);
+}
+
+function showFinale() {
+  finale.classList.add('show');
+  setTimeout(() => finaleInner.classList.add('show'), 100);
+}
+
+// ── CURSOR FIREWORK TRAIL ──
+const cursorColors = ['#f5dfa0','#e8c97a','#c9687a','#a99dd4','#7bbdd4','#f0b870','#92cc92','#ff8fa3','#ffffff'];
+
+function spawnCursorSpark(x, y) {
+  const count = 1 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < count; i++) {
+    const spark = document.createElement('div');
+    spark.className = 'cursor-spark';
+    const color = cursorColors[Math.floor(Math.random() * cursorColors.length)];
+    const size = 2 + Math.random() * 2.5;
+    spark.style.width = size + 'px';
+    spark.style.height = size + 'px';
+    spark.style.background = color;
+    spark.style.boxShadow = `0 0 6px ${color}`;
+
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 4 + Math.random() * 14;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist + 6; // slight downward drift like falling embers
+
+    spark.style.transform = `translate(${x}px, ${y}px)`;
+    spark.style.opacity = '1';
+    document.body.appendChild(spark);
+
+    // Force a synchronous reflow so the browser commits the starting position
+    // before we change to the target style — otherwise the two style changes
+    // can get batched into one and the transition silently never plays.
+    void spark.offsetWidth;
+
+    spark.style.transition = `transform ${500 + Math.random()*300}ms ease-out, opacity ${500 + Math.random()*300}ms ease-out`;
+    spark.style.transform = `translate(${x + dx}px, ${y + dy}px)`;
+    spark.style.opacity = '0';
+
+    setTimeout(() => spark.remove(), 900);
+  }
+}
+
+// Fill in the path between consecutive pointer positions so fast movement
+// doesn't leave gaps in the trail — spawn along the line, not just at events.
+let lastTrailX = null, lastTrailY = null;
+function trailTo(x, y) {
+  if (lastTrailX === null) {
+    spawnCursorSpark(x, y);
+    lastTrailX = x; lastTrailY = y;
+    return;
+  }
+  const dx = x - lastTrailX, dy = y - lastTrailY;
+  const dist = Math.hypot(dx, dy);
+  const spacing = 8; // px between spark spawns along the path
+  const steps = Math.min(Math.max(Math.floor(dist / spacing), 1), 40);
+  for (let s = 1; s <= steps; s++) {
+    const t = s / steps;
+    spawnCursorSpark(lastTrailX + dx * t, lastTrailY + dy * t);
+  }
+  lastTrailX = x; lastTrailY = y;
+}
+
+const cursorDot = document.getElementById('cursor-dot');
+let cursorHideTimeout;
+function moveCursorDot(x, y) {
+  cursorDot.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+  cursorDot.style.opacity = '1';
+  clearTimeout(cursorHideTimeout);
+  cursorHideTimeout = setTimeout(() => { cursorDot.style.opacity = '0'; }, 1500);
+}
+
+window.addEventListener('mousemove', (e) => {
+  moveCursorDot(e.clientX, e.clientY);
+  trailTo(e.clientX, e.clientY);
+});
+window.addEventListener('touchmove', (e) => {
+  const t = e.touches[0];
+  if (t) {
+    moveCursorDot(t.clientX, t.clientY);
+    trailTo(t.clientX, t.clientY);
+  }
+}, { passive: true });
+
+// ── AUTO FULLSCREEN ──
+// Browsers require a user gesture before allowing fullscreen, so we request
+// it when the visitor taps "Begin" on the intro screen — the first gesture.
+let fullscreenRequested = false;
+function requestAutoFullscreen() {
+  if (fullscreenRequested) return;
+  fullscreenRequested = true;
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+document.getElementById('intro-start-btn').addEventListener('click', () => {
+  requestAutoFullscreen();
+  document.getElementById('intro-screen').classList.add('hide');
+});
+
+document.getElementById('replay-btn').addEventListener('click', () => {
+  window.location.href = 'our-timeline-2.html';
+});
+</script>
+</body>
+</html>
